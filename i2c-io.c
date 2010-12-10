@@ -22,12 +22,14 @@
 #include <stdint.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
 
-int i2c_write(int fd, uint8_t addr, uint8_t reg, uint8_t *buf, unsigned int nb)
+int i2c_write(int fd, uint8_t addr, uint8_t reg, void *buf, unsigned int nb,
+		unsigned int ds)
 {
 	struct i2c_rdwr_ioctl_data msgset;
 	struct i2c_msg msgs[2];
@@ -37,18 +39,19 @@ int i2c_write(int fd, uint8_t addr, uint8_t reg, uint8_t *buf, unsigned int nb)
 
 	msgs[0].addr = addr;
 	msgs[0].flags = 0;
-	msgs[0].buf = &reg;
+	msgs[0].buf = (unsigned char *)&reg;
 	msgs[0].len = 1;
 
 	msgs[1].addr = addr;
 	msgs[1].flags = 0;
-	msgs[1].buf = buf;
-	msgs[1].len = nb;
+	msgs[1].buf = (unsigned char *)buf;
+	msgs[1].len = nb*ds;
 
 	return ioctl(fd, I2C_RDWR, &msgset);
 }
 
-int i2c_read(int fd, uint8_t addr, uint8_t reg, uint8_t *buf, unsigned int nb)
+int i2c_read(int fd, uint8_t addr, uint8_t reg, void *buf, unsigned int nb,
+		unsigned int ds)
 {
 	struct i2c_rdwr_ioctl_data msgset;
 	struct i2c_msg msgs[2];
@@ -61,18 +64,28 @@ int i2c_read(int fd, uint8_t addr, uint8_t reg, uint8_t *buf, unsigned int nb)
 
 	msgs[0].addr = addr;
 	msgs[0].flags = 0;
-	msgs[0].buf = &reg;
+	msgs[0].buf = (unsigned char *)&reg;
 	msgs[0].len = 1;
 
-	msgs[1].addr = addr | 0x01;
+	msgs[1].addr = addr;
 	msgs[1].flags = I2C_M_RD;
-	msgs[1].buf = buf;
-	msgs[1].len = nb;
+	msgs[1].buf = (unsigned char *)buf;
+	msgs[1].len = nb*ds;
 
 	return ioctl(fd, I2C_RDWR, &msgset);
 }
 
-int i2c_open(char *adapter)
+int i2c_smbus_read(int fd, uint8_t addr, uint8_t *buf, unsigned int nb)
+{
+	unsigned int i;
+
+	for (i = 0; i < nb; i++)
+		if (read(fd, &buf[i], 1) != 1)
+			return -1;
+	return 0;
+}
+
+int i2c_open(char *adapter, uint8_t addr)
 {
 	int fd;
 	unsigned long funcs;
@@ -80,6 +93,11 @@ int i2c_open(char *adapter)
 	fd = open(adapter, O_RDWR);
 	if (fd < 0) {
 		perror("open");
+		return -ENODEV;
+	}
+
+	if (ioctl(fd, I2C_SLAVE, addr) < 0) {
+		perror("set slave address");
 		return -ENODEV;
 	}
 

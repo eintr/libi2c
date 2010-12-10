@@ -22,20 +22,34 @@
 
 void print_usage(char *name)
 {
-	printf("usage:	%s <adapter> r <address> <register> <num-bytes>\n",
+	printf("usage:	%s <adapter> r<s> <address> <register> <count>\n",
 			name);
-	printf("\t%s <adapter> w <address> <register> <b1> [b2] [b3] ...\n",
+	printf("\t%s <adapter> w<s> <address> <register> <b1> [b2] [b3] ...\n",
 			name);
+	printf("\n\twhere <s> is one of: b (byte), h (short), w (word)\n");
+}
+
+void print_buffer(void *buf, unsigned int nb, unsigned int ds)
+{
+	unsigned char *b = (unsigned char *)buf;
+	int i, j;
+
+	for (i = 0; i < nb; i++) {
+		for (j = 0; j < ds; j++)
+			printf("%02x ", b[j]);
+		b += ds;
+	}
+	putchar('\n');
 }
 
 int main(int argc, char **argv)
 {
 	int fd;
 	int ret;
-	int i;
+	unsigned int i;
 	struct stat st;
-	unsigned int addr, reg, nb;
-	uint8_t *buf;
+	unsigned int addr, reg, nb, ds;
+	char *buf;
 
 	if (argc < 6 || (argv[2][0] != 'r' && argv[2][0] != 'w')) {
 		print_usage(argv[0]);
@@ -59,33 +73,39 @@ int main(int argc, char **argv)
 		return 3;
 	}
 
-	fd = i2c_open(argv[1]);
+	fd = i2c_open(argv[1], addr);
 	if (fd < 0)
 		return 4;
 
+	switch (argv[2][1]) {
+		default:
+		case 'b':
+			ds = sizeof(uint8_t);
+			break;
+		case 'h':
+			ds = sizeof(uint16_t);
+			break;
+		case 'w':
+			ds = sizeof(uint32_t);
+			break;
+	}
+
 	if (argv[2][0] == 'r') {
-		if (sscanf(argv[5], "%u", &nb) != 1) {
-			fprintf(stderr, "error: invalid number of bytes\n");
+		if (sscanf(argv[5], "%u", &nb) != 1 || nb < 1) {
+			fprintf(stderr, "error: invalid count\n");
 			print_usage(argv[0]);
 			close(fd);
 			return 5;
 		}
 
-		if (nb < 1) {
-			fprintf(stderr, "error: read at least one byte\n");
-			print_usage(argv[0]);
-			close(fd);
-			return 5;
-		}
-
-		buf = malloc(nb);
+		buf = malloc(nb*ds);
 		if (!buf) {
 			perror("malloc");
 			close(fd);
 			return 6;
 		}
 
-		ret = i2c_read(fd, addr, reg, buf, nb);
+		ret = i2c_read(fd, addr, reg, buf, nb, ds);
 		if (ret < 0) {
 			printf("error: %d\n", ret);
 			free(buf);
@@ -93,12 +113,10 @@ int main(int argc, char **argv)
 			return 7;
 		}
 
-		for (i = 1; i < nb; i++)
-			printf("%02x ", buf[i]);
-		printf("\n");
+		print_buffer(buf, nb, ds);
 		free(buf);
 	} else if (argv[2][0] == 'w') {
-		buf = malloc(argc - 5);
+		buf = malloc((argc - 5)*ds);
 		if (!buf) {
 			perror("malloc");
 			close(fd);
@@ -107,7 +125,7 @@ int main(int argc, char **argv)
 
 		for (i = 0; i < argc - 5; i++) {
 			if (sscanf(argv[i+5], "%x",
-					(unsigned int *)&buf[i]) != 1) {
+						(unsigned int *)&buf[i]) != 1) {
 				printf("error: argument %d invalid\n", i+5);
 				free(buf);
 				close(fd);
@@ -115,7 +133,7 @@ int main(int argc, char **argv)
 			}
 		}
 
-		ret = i2c_write(fd, addr, reg, buf, argc - 5);
+		ret = i2c_write(fd, addr, reg, buf, argc - 5, ds);
 		if (ret < 0) {
 			printf("error: %d\n", ret);
 			free(buf);
