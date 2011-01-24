@@ -28,24 +28,19 @@
 #include <linux/i2c.h>
 #include <linux/i2c-dev.h>
 
-int i2c_write(int fd, uint8_t addr, uint8_t reg, void *buf, unsigned int nb,
+int i2c_write(int fd, uint8_t addr, void *buf, unsigned int nb,
 		unsigned int ds)
 {
 	struct i2c_rdwr_ioctl_data msgset;
-	struct i2c_msg msgs[2];
+	struct i2c_msg msg;
 
-	msgset.nmsgs = 2;
-	msgset.msgs = msgs;
+	msgset.nmsgs = 1;
+	msgset.msgs = &msg;
 
-	msgs[0].addr = addr;
-	msgs[0].flags = 0;
-	msgs[0].buf = (unsigned char *)&reg;
-	msgs[0].len = 1;
-
-	msgs[1].addr = addr;
-	msgs[1].flags = 0;
-	msgs[1].buf = (unsigned char *)buf;
-	msgs[1].len = nb*ds;
+	msg.addr = addr;
+	msg.flags = 0;
+	msg.buf = (unsigned char *)buf;
+	msg.len = nb*ds;
 
 	return ioctl(fd, I2C_RDWR, &msgset);
 }

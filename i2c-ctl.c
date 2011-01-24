@@ -49,9 +49,10 @@ int main(int argc, char **argv)
 	unsigned int i;
 	struct stat st;
 	unsigned int addr, reg, nb, ds;
-	char *buf;
+	void *buf;
 
-	if (argc < 6 || (argv[2][0] != 'r' && argv[2][0] != 'w')) {
+	if (argc < 6 || (argv[2][0] != 'r' && argv[2][0] != 'w') ||
+			strlen(argv[2]) < 2) {
 		print_usage(argv[0]);
 		return 0;
 	}
@@ -116,24 +117,24 @@ int main(int argc, char **argv)
 		print_buffer(buf, nb, ds);
 		free(buf);
 	} else if (argv[2][0] == 'w') {
-		buf = malloc((argc - 5)*ds);
+		buf = malloc((argc - 4)*ds);
 		if (!buf) {
 			perror("malloc");
 			close(fd);
 			return 6;
 		}
 
-		for (i = 0; i < argc - 5; i++) {
-			if (sscanf(argv[i+5], "%x",
-						(unsigned int *)&buf[i]) != 1) {
-				printf("error: argument %d invalid\n", i+5);
+		for (i = 0; i < argc - 4; i++) {
+			if (sscanf(argv[i+4], "%x",
+					(unsigned int *)&buf[i]) != 1) {
+				printf("error: argument %d invalid\n", i+4);
 				free(buf);
 				close(fd);
 				return 8;
 			}
 		}
 
-		ret = i2c_write(fd, addr, reg, buf, argc - 5, ds);
+		ret = i2c_write(fd, addr, buf, argc - 4, ds);
 		if (ret < 0) {
 			printf("error: %d\n", ret);
 			free(buf);

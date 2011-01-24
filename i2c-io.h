@@ -22,7 +22,7 @@
 #define __I2C_LIB_H__
 #include <stdint.h>
 
-int i2c_write(int fd, uint8_t addr, uint8_t reg, void *buf, unsigned int nb,
+int i2c_write(int fd, uint8_t addr, void *buf, unsigned int nb,
 		unsigned int ds);
 int i2c_read(int fd, uint8_t addr, uint8_t reg, void *buf, unsigned int nb,
 		unsigned int ds);
