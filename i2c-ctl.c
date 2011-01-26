@@ -14,6 +14,7 @@
  * GNU General Public License for more details.
  */
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -40,6 +41,62 @@ void print_buffer(void *buf, unsigned int nb, unsigned int ds)
 		b += ds;
 	}
 	putchar('\n');
+}
+
+int loadb_tx(int argc, char **argv, uint8_t *dest)
+{
+	int i;
+
+	for (i = 0; i < argc; i++) {
+		if (sscanf(argv[i], "%hhx", &dest[i]) != 1) {
+			fprintf(stderr, "argument %d is invalid\n", i+4);
+			return 1;
+		}
+	}
+	
+	return 0;
+}
+
+int loads_tx(int argc, char **argv, uint16_t *dest)
+{
+	int i;
+
+	for (i = 0; i < argc; i++) {
+		if (sscanf(argv[i], "%hx", &dest[i]) != 1) {
+			fprintf(stderr, "argument %d is invalid\n", i+4);
+			return 1;
+		}
+	}
+	
+	return 0;
+}
+
+int loadw_tx(int argc, char **argv, uint32_t *dest)
+{
+	int i;
+
+	for (i = 0; i < argc; i++) {
+		if (sscanf(argv[i], "%x", &dest[i]) != 1) {
+			fprintf(stderr, "argument %d is invalid\n", i+4);
+			return 1;
+		}
+	}
+	
+	return 0;
+}
+
+int load_tx(int argc, char **argv, unsigned int ds, void *dest)
+{
+	switch (ds) {
+		case 1:
+			return loadb_tx(argc, argv, dest);
+		case 2:
+			return loads_tx(argc, argv, dest);
+		case 4:
+			return loadw_tx(argc, argv, dest);
+	}
+
+	return 1;
 }
 
 int main(int argc, char **argv)
@@ -123,15 +180,11 @@ int main(int argc, char **argv)
 			close(fd);
 			return 6;
 		}
-
-		for (i = 0; i < argc - 4; i++) {
-			if (sscanf(argv[i+4], "%x",
-					(unsigned int *)&buf[i]) != 1) {
-				printf("error: argument %d invalid\n", i+4);
-				free(buf);
-				close(fd);
-				return 8;
-			}
+		
+		if (load_tx(argc - 4, argv + 4, ds, buf) != 0) {
+			free(buf);
+			close(fd);
+			return 8;
 		}
 
 		ret = i2c_write(fd, addr, buf, argc - 4, ds);
