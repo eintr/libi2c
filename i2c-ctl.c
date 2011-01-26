@@ -115,19 +115,19 @@ int main(int argc, char **argv)
 	}
 
 	if (sscanf(argv[3], "%x", &addr) != 1) {
-		printf("error: invalid address\n");
+		fprintf(stderr, "invalid address\n");
 		print_usage(argv[0]);
 		return 1;
 	}
 
 	if (sscanf(argv[4], "%x", &reg) != 1) {
-		printf("error: invalid register\n");
+		fprintf(stderr, "invalid register\n");
 		print_usage(argv[0]);
 		return 2;
 	}
 
 	if (stat("/sys/class/i2c-dev", &st)) {
-		printf("error: i2c-dev not loaded\n");
+		fprintf(stderr, "i2c-dev not loaded\n");
 		return 3;
 	}
 
@@ -165,7 +165,7 @@ int main(int argc, char **argv)
 
 		ret = i2c_read(fd, addr, reg, buf, nb, ds);
 		if (ret < 0) {
-			printf("error: %d\n", ret);
+			fprintf(stderr, "read error: %d\n", ret);
 			free(buf);
 			close(fd);
 			return 7;
@@ -189,7 +189,7 @@ int main(int argc, char **argv)
 
 		ret = i2c_write(fd, addr, buf, argc - 4, ds);
 		if (ret < 0) {
-			printf("error: %d\n", ret);
+			fprintf(stderr, "write error: %d\n", ret);
 			free(buf);
 			close(fd);
 			return 7;
